@@ -1,0 +1,203 @@
+// Prisma Schema for Chat Service
+// Note: This service shares the database with other services (CORE, Feed)
+// CHAT TABLES are managed by this service
+// SHARED TABLES are read-only - managed by CORE
+
+// This schema ONLY defines chat-specific tables
+// Shared tables are referenced but not defined (using @@schema() would cause issues)
+
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../generated"
+  previewFeatures = ["fullTextSearchPostgres"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  AUDIO
+  SYSTEM
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+}
+
+enum MatchCreatedBy {
+  MUTUAL_LIKE
+  SUPERLIKE
+}
+
+// ============================================
+// SHARED TABLES (Read-Only - Managed by CORE)
+// ============================================
+
+/// Match table - READ ONLY (managed by CORE service)
+model Match {
+  id        String          @id
+  userAId   String          @map("user_a_id")
+  userBId   String          @map("user_b_id")
+  createdBy MatchCreatedBy  @map("created_by")
+  createdAt DateTime        @map("created_at") @db.Timestamp
+
+  @@index([userAId])
+  @@index([userBId])
+  @@unique([userAId, userBId])
+  @@map("matches")
+}
+
+/// User table - READ ONLY (managed by CORE service)
+model User {
+  id        String   @id
+  email     String   @unique
+  name      String
+  createdAt DateTime @map("created_at") @db.Timestamp
+  updatedAt DateTime @map("updated_at") @db.Timestamp
+
+  profile Profile?
+
+  @@map("users")
+}
+
+/// Profile table - READ ONLY (managed by CORE service)
+model Profile {
+  userId       String @id @map("user_id")
+  displayName  String @map("display_name")
+  birthDate   DateTime @map("birth_date") @db.Date
+  bio          String?
+  locationLat  Float?  @map("location_lat")
+  locationLng  Float?  @map("location_lng")
+  locationCity String?  @map("location_city")
+  user         User @relation(fields: [userId], references: [id])
+
+  @@map("profiles")
+}
+
+/// Media table - READ ONLY (managed by Media service)
+model Media {
+  id           String  @id
+  userId       String @map("user_id")
+  url          String?
+  thumbnailUrl String? @map("thumbnail_url")
+  type         String
+  status       String
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamp
+  createdAt   DateTime @map("created_at") @db.Timestamp
+
+  @@index([userId])
+  @@map("ms_media")
+}
+
+/// Block table - READ ONLY (managed by CORE service)
+model Block {
+  id        String   @id
+  blockerId String   @map("blocker_id")
+  blockedId String   @map("blocked_id")
+  reason    String?
+  createdAt DateTime @map("created_at") @db.Timestamp
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])
+  @@index([blockedId])
+  @@map("blocks")
+}
+
+// ============================================
+// CHAT TABLES (Managed by Chat Service)
+// ============================================
+
+model Conversation {
+  id            String    @id @default(uuid())
+  userAId       String    @map("user_a_id")
+  userBId       String    @map("user_b_id")
+  matchId       String?   @map("match_id")
+  lastMessageAt DateTime  @default(now()) @map("last_message_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  messages         Message[]
+  readReceipts     ConversationReadReceipt[]
+
+  @@unique([userAId, userBId])
+  @@index([userAId])
+  @@index([userBId])
+  @@index([lastMessageAt])
+  @@map("chat_conversations")
+}
+
+model Message {
+  id             String        @id @default(uuid())
+  conversationId String        @map("conversation_id")
+  senderId       String        @map("sender_id")
+  content        String?       @db.Text
+  type           MessageType   @default(TEXT)
+  mediaUrl       String?       @map("media_url") @db.VarChar(500)
+  mediaType      String?       @map("media_type")
+  status         MessageStatus @default(SENT)
+  replyToId      String?       @map("reply_to_id")
+  editedAt       DateTime?     @map("edited_at")
+  deletedAt      DateTime?     @map("deleted_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  conversation Conversation           @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  replyTo      Message?               @relation("MessageReply", fields: [replyToId], references: [id])
+  replies      Message[]              @relation("MessageReply")
+  readReceipts MessageReadReceipt[]
+  reactions    MessageReaction[]
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+  @@index([conversationId, status])
+  @@map("chat_messages")
+}
+
+model ConversationReadReceipt {
+  id             String   @id @default(uuid())
+  conversationId String   @map("conversation_id")
+  userId         String   @map("user_id")
+  lastReadAt     DateTime @default(now()) @map("last_read_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@map("chat_conversation_read_receipts")
+}
+
+model MessageReadReceipt {
+  id        String   @id @default(uuid())
+  messageId String   @map("message_id")
+  userId    String   @map("user_id")
+  readAt    DateTime @default(now()) @map("read_at")
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([userId])
+  @@map("chat_message_read_receipts")
+}
+
+model MessageReaction {
+  id        String   @id @default(uuid())
+  messageId String   @map("message_id")
+  userId    String   @map("user_id")
+  emoji     String   @db.VarChar(10)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@map("chat_message_reactions")
+}

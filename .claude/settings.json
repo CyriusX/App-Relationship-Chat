@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Projetos/RelationshipApp/AppRelationshipFrontEnd/**)",
+      "Read(//c/Projetos/RelationshipApp/AppRelationship CORE/**)",
+      "Read(//c/Projetos/RelationshipApp/**)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npm run lint)",
+      "Bash(npm install typescript-eslint --save-dev)",
+      "Bash(npm run build)"
+    ],
+    "additionalDirectories": [
+      "C:\\Projetos\\RelationshipApp\\AppRelationshipChat",
+      "C:\\Projetos\\RelationshipApp\\AppRelationshipFrontEnd\\src\\config",
+      "C:\\Projetos\\RelationshipApp\\AppRelationshipFrontEnd\\src\\infrastructure\\http\\repositories",
+      "C:\\Projetos\\RelationshipApp\\AppRelationshipFrontEnd"
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run test)",
+      "Bash(npm run dev)",
+      "Bash(npx prisma generate --schema=src/infrastructure/database/prisma/schema.prisma)",
+      "Bash(npx prisma validate --schema=src/infrastructure/database/prisma/schema.prisma)",
+      "Bash(npx prisma db pull --schema=src/infrastructure/database/prisma/schema.prisma --force)",
+      "Bash(npx prisma migrate status --schema=src/infrastructure/database/prisma/schema.prisma)",
+      "Bash(npx prisma migrate dev --name init_chat_tables --schema=src/infrastructure/database/prisma/schema.prisma)",
+      "Bash(npx prisma migrate dev --name init_chat_tables --schema=src/infrastructure/database/prisma/schema.prisma --create-only)",
+      "Bash(docker start relationship-redis)",
+      "Bash(docker exec relationship-redis redis-cli ping)"
+    ]
+  }
+}

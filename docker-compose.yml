@@ -1,0 +1,94 @@
+version: '3.8'
+
+# ===========================================
+# Chat Service - Docker Compose
+# ===========================================
+# NOTE: In production, Chat Service shares the database with CORE service.
+# This docker-compose is for local development with isolated containers.
+
+services:
+  # PostgreSQL - Shared database (in production, use NeonDB)
+  postgres:
+    image: postgres:15-alpine
+    container_name: relationship-postgres
+    environment:
+      POSTGRES_USER: relationship_user
+      POSTGRES_PASSWORD: relationship_pass
+      POSTGRES_DB: relationship_app
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U relationship_user -d relationship_app']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis - For Socket.io adapter and presence cache
+  redis:
+    image: redis:7-alpine
+    container_name: relationship-redis
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Chat Service
+  chat-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chat-service
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      SERVICE_NAME: chat-service
+
+      # Database (shared with CORE service)
+      DATABASE_URL: postgresql://relationship_user:relationship_pass@postgres:5432/relationship_app?schema=public
+
+      # Redis
+      REDIS_URL: redis://redis:6379
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+      # JWT (must match CORE service)
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      JWT_EXPIRES_IN: 7d
+
+      # Socket.io
+      SOCKET_CORS_ORIGIN: http://localhost:3000,http://localhost:19006
+      SOCKET_PATH: /socket.io
+
+      # Service URLs (update for production)
+      CORE_SERVICE_URL: http://host.docker.internal:3000
+      FEED_SERVICE_URL: http://host.docker.internal:3002
+      NOTIFICATION_SERVICE_URL: http://host.docker.internal:3003
+
+      # Internal API
+      INTERNAL_API_KEY: your-internal-api-key
+
+      # Logging
+      LOG_LEVEL: debug
+    ports:
+      - '3001:3001'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+      - ./package.json:/app/package.json
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+
+volumes:
+  postgres_data:
+  redis_data:
