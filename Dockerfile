@@ -1,5 +1,6 @@
 # Build stage
 FROM node:20-alpine AS builder
+RUN apk add --no-cache openssl
 
 WORKDIR /app
 
@@ -14,6 +15,7 @@ RUN npx tsc-alias -p tsconfig.build.json
 
 # Production stage
 FROM node:20-alpine AS production
+RUN apk add --no-cache openssl
 
 WORKDIR /app
 
