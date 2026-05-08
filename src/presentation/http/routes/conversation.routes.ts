@@ -26,7 +26,9 @@ export async function conversationRoutes(fastify: FastifyInstance): Promise<void
       },
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (request: any, reply: any) => controller.create(request, reply)
+    async (request: any, reply: any) => {
+      await controller.create(request, reply);
+    }
   );
 
   // List user's conversations
@@ -40,7 +42,9 @@ export async function conversationRoutes(fastify: FastifyInstance): Promise<void
       },
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (request: any, reply: any) => controller.list(request, reply)
+    async (request: any, reply: any) => {
+      await controller.list(request, reply);
+    }
   );
 
   // Get conversation by ID
@@ -54,6 +58,8 @@ export async function conversationRoutes(fastify: FastifyInstance): Promise<void
       },
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (request: any, reply: any) => controller.get(request, reply)
+    async (request: any, reply: any) => {
+      await controller.get(request, reply);
+    }
   );
 }

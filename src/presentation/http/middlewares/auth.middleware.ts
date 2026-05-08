@@ -18,29 +18,28 @@ function isValidJwtPayload(payload: unknown): payload is JwtPayload {
 
 export async function authMiddleware(
   request: FastifyRequest,
-  reply: FastifyReply,
-  done: HookHandlerDoneFunction
+  reply: FastifyReply
 ): Promise<void> {
   try {
     const decoded = await request.jwtVerify();
 
     if (!isValidJwtPayload(decoded)) {
-      return reply.status(401).send({
+      reply.status(401).send({
         statusCode: 401,
         error: 'Unauthorized',
         message: 'Invalid token payload',
       });
+      return;
     }
 
-    // Store typed payload in request
     (request as FastifyRequest & { userPayload: JwtPayload }).userPayload = decoded;
-    done();
   } catch (error) {
-    return reply.status(401).send({
+    reply.status(401).send({
       statusCode: 401,
       error: 'Unauthorized',
       message: error instanceof Error ? error.message : 'Authentication failed',
     });
+    return;
   }
 }
 

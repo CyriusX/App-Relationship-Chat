@@ -29,6 +29,10 @@ export class ChatSocketHandlers {
   register(socket: Socket, io: Server): void {
     const userId = (socket as any).userId as string;
 
+    // Conversation room handlers
+    socket.on('conversation:join', (data: any) => this.handleJoinConversation(socket, userId, data));
+    socket.on('conversation:leave', (data: any) => this.handleLeaveConversation(socket, userId, data));
+
     // Message handlers
     socket.on('message:send', (data: any) => this.handleSendMessage(socket, io, userId, data));
     socket.on('message:edit', (data: any) => this.handleEditMessage(socket, io, userId, data));
@@ -85,8 +89,14 @@ export class ChatSocketHandlers {
       await this.conversationRepository.save(conversation);
 
       const messagePayload = MessageMapper.toResponseDTO(message);
-      io.to(`conversation:${data.conversationId}`).emit('message:new', messagePayload);
 
+      // Confirm to sender with the persisted message
+      socket.emit('message:sent', messagePayload);
+
+      // Broadcast to conversation room (other participant if joined)
+      socket.to(`conversation:${data.conversationId}`).emit('message:new', messagePayload);
+
+      // Also send to other participant's personal room as fallback
       const otherParticipant = conversation.getOtherParticipant(userId);
       io.to(`user:${otherParticipant}`).emit('message:new', messagePayload);
     } catch (error) {
@@ -221,6 +231,36 @@ export class ChatSocketHandlers {
       });
     } catch (error) {
       logger.error({ error, userId }, 'Failed to handle typing stop');
+    }
+  }
+
+  private handleJoinConversation(
+    socket: Socket,
+    userId: string,
+    data: { conversationId: string }
+  ): void {
+    try {
+      const room = `conversation:${data.conversationId}`;
+      socket.join(room);
+      (socket as any).conversationRooms.add(data.conversationId);
+      logger.info({ userId, socketId: socket.id, room }, 'Joined conversation room');
+    } catch (error) {
+      logger.error({ error, userId }, 'Failed to join conversation room');
+    }
+  }
+
+  private handleLeaveConversation(
+    socket: Socket,
+    userId: string,
+    data: { conversationId: string }
+  ): void {
+    try {
+      const room = `conversation:${data.conversationId}`;
+      socket.leave(room);
+      (socket as any).conversationRooms.delete(data.conversationId);
+      logger.info({ userId, socketId: socket.id, room }, 'Left conversation room');
+    } catch (error) {
+      logger.error({ error, userId }, 'Failed to leave conversation room');
     }
   }
 

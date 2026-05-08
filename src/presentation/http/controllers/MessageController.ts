@@ -41,7 +41,8 @@ export class MessageController {
 
     const conversation = await this.conversationRepository.findById(convId);
     if (!conversation || !conversation.hasParticipant(userId)) {
-      return reply.status(404).send({ error: 'Conversation not found' });
+      reply.status(404).send({ error: 'Conversation not found' });
+      return;
     }
 
     const messages = await this.messageRepository.findByConversationId(
@@ -72,7 +73,8 @@ export class MessageController {
 
     const conversation = await this.conversationRepository.findById(convId);
     if (!conversation || !conversation.hasParticipant(userId)) {
-      return reply.status(404).send({ error: 'Conversation not found' });
+      reply.status(404).send({ error: 'Conversation not found' });
+      return;
     }
 
     const messageType = MessageType.fromString(type);
@@ -102,7 +104,8 @@ export class MessageController {
 
     const message = await this.messageRepository.findById(MessageId.restore(messageId));
     if (!message || message.senderId !== userId) {
-      return reply.status(404).send({ error: 'Message not found' });
+      reply.status(404).send({ error: 'Message not found' });
+      return;
     }
 
     message.edit(content);
@@ -121,7 +124,8 @@ export class MessageController {
 
     const message = await this.messageRepository.findById(MessageId.restore(messageId));
     if (!message || message.senderId !== userId) {
-      return reply.status(404).send({ error: 'Message not found' });
+      reply.status(404).send({ error: 'Message not found' });
+      return;
     }
 
     message.delete();
@@ -142,7 +146,8 @@ export class MessageController {
 
     const conversation = await this.conversationRepository.findById(convId);
     if (!conversation || !conversation.hasParticipant(userId)) {
-      return reply.status(404).send({ error: 'Conversation not found' });
+      reply.status(404).send({ error: 'Conversation not found' });
+      return;
     }
 
     const count = await this.messageRepository.markAsRead(convId, userId);

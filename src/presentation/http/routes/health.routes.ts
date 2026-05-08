@@ -45,7 +45,9 @@ export async function healthRoutes(fastify: FastifyInstance): Promise<void> {
         },
       },
     },
-    controller.check.bind(controller)
+    async (request, reply) => {
+      await controller.check(request, reply);
+    }
   );
 
   // Kubernetes liveness probe
@@ -57,7 +59,9 @@ export async function healthRoutes(fastify: FastifyInstance): Promise<void> {
         description: 'Liveness probe - is the service running?',
       },
     },
-    controller.liveness.bind(controller)
+    async (request, reply) => {
+      await controller.liveness(request, reply);
+    }
   );
 
   // Kubernetes readiness probe
@@ -69,6 +73,8 @@ export async function healthRoutes(fastify: FastifyInstance): Promise<void> {
         description: 'Readiness probe - is the service ready to accept traffic?',
       },
     },
-    controller.readiness.bind(controller)
+    async (request, reply) => {
+      await controller.readiness(request, reply);
+    }
   );
 }

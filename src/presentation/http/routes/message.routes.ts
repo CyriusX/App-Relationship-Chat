@@ -24,7 +24,9 @@ export async function messageRoutes(fastify: FastifyInstance): Promise<void> {
       },
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (request: any, reply: any) => controller.getMessages(request, reply)
+    async (request: any, reply: any) => {
+      await controller.getMessages(request, reply);
+    }
   );
 
   // Send a message
@@ -38,7 +40,9 @@ export async function messageRoutes(fastify: FastifyInstance): Promise<void> {
       },
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (request: any, reply: any) => controller.sendMessage(request, reply)
+    async (request: any, reply: any) => {
+      await controller.sendMessage(request, reply);
+    }
   );
 
   // Edit a message
@@ -52,7 +56,9 @@ export async function messageRoutes(fastify: FastifyInstance): Promise<void> {
       },
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (request: any, reply: any) => controller.editMessage(request, reply)
+    async (request: any, reply: any) => {
+      await controller.editMessage(request, reply);
+    }
   );
 
   // Delete a message (soft delete)
@@ -66,7 +72,9 @@ export async function messageRoutes(fastify: FastifyInstance): Promise<void> {
       },
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (request: any, reply: any) => controller.deleteMessage(request, reply)
+    async (request: any, reply: any) => {
+      await controller.deleteMessage(request, reply);
+    }
   );
 
   // Mark messages as read
@@ -80,6 +88,8 @@ export async function messageRoutes(fastify: FastifyInstance): Promise<void> {
       },
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (request: any, reply: any) => controller.markAsRead(request, reply)
+    async (request: any, reply: any) => {
+      await controller.markAsRead(request, reply);
+    }
   );
 }

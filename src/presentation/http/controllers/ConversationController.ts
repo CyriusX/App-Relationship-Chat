@@ -35,7 +35,6 @@ export class ConversationController {
   ): Promise<void> {
     const authRequest = request as AuthenticatedRequest;
     const userId = authRequest.userPayload.userId;
-    // Convert query params to numbers (querystring values are strings)
     const limit = Number(request.query.limit) || 20;
     const offset = Number(request.query.offset) || 0;
 
@@ -66,19 +65,21 @@ export class ConversationController {
     );
 
     if (!conversation) {
-      return reply.status(404).send({
+      reply.status(404).send({
         statusCode: 404,
         error: 'Not Found',
         message: 'Conversation not found',
       });
+      return;
     }
 
     if (!conversation.hasParticipant(userId)) {
-      return reply.status(403).send({
+      reply.status(403).send({
         statusCode: 403,
         error: 'Forbidden',
         message: 'You are not a participant in this conversation',
       });
+      return;
     }
 
     reply.send(await ConversationMapper.toResponseDTOAsync(conversation, userId));
@@ -94,11 +95,12 @@ export class ConversationController {
 
     // Ensure the authenticated user is one of the participants
     if (userAId !== userId && userBId !== userId) {
-      return reply.status(403).send({
+      reply.status(403).send({
         statusCode: 403,
         error: 'Forbidden',
         message: 'You can only create conversations where you are a participant',
       });
+      return;
     }
 
     try {
@@ -115,18 +117,20 @@ export class ConversationController {
     } catch (error) {
       if (error instanceof Error) {
         if (error.name === 'UsersNotMatchedError') {
-          return reply.status(403).send({
+          reply.status(403).send({
             statusCode: 403,
             error: 'Forbidden',
             message: error.message,
           });
+          return;
         }
         if (error.name === 'UsersBlockedError') {
-          return reply.status(403).send({
+          reply.status(403).send({
             statusCode: 403,
             error: 'Forbidden',
             message: error.message,
           });
+          return;
         }
       }
       throw error;

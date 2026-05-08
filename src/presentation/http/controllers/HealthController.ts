@@ -22,14 +22,9 @@ interface HealthCheck {
 const VERSION = '1.0.0';
 
 export class HealthController {
-  async check(_request: FastifyRequest, reply: FastifyReply): Promise<HealthStatus> {
-    // Check database
+  async check(_request: FastifyRequest, reply: FastifyReply): Promise<void> {
     const dbCheck = await this.checkDatabase();
-
-    // Check Redis
     const redisCheck = await this.checkRedis();
-
-    // Determine overall status
     const status = this.determineStatus(dbCheck, redisCheck);
 
     const response: HealthStatus = {
@@ -44,23 +39,23 @@ export class HealthController {
     };
 
     const statusCode = status === 'healthy' ? 200 : status === 'degraded' ? 200 : 503;
-
-    return reply.status(statusCode).send(response);
+    reply.status(statusCode).send(response);
   }
 
-  async liveness(_request: FastifyRequest, reply: FastifyReply): Promise<{ status: string }> {
-    return reply.status(200).send({ status: 'ok' });
+  async liveness(_request: FastifyRequest, reply: FastifyReply): Promise<void> {
+    reply.status(200).send({ status: 'ok' });
   }
 
-  async readiness(_request: FastifyRequest, reply: FastifyReply): Promise<{ status: string }> {
+  async readiness(_request: FastifyRequest, reply: FastifyReply): Promise<void> {
     const dbCheck = await this.checkDatabase();
     const redisCheck = await this.checkRedis();
 
     if (dbCheck.status === 'down' || redisCheck.status === 'down') {
-      return reply.status(503).send({ status: 'not ready' });
+      reply.status(503).send({ status: 'not ready' });
+      return;
     }
 
-    return reply.status(200).send({ status: 'ready' });
+    reply.status(200).send({ status: 'ready' });
   }
 
   private async checkDatabase(): Promise<HealthCheck> {
