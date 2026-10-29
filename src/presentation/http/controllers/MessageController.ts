@@ -1,8 +1,8 @@
+import { SendMessageUseCase } from '@application/use-cases/message/SendMessageUseCase';
 import { inject, injectable } from 'tsyringe';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import type { IConversationRepository, IMessageRepository } from '@domain/repositories';
-import { ConversationId, MessageId, MessageType } from '@domain/value-objects';
-import { Message } from '@domain/entities';
+import { ConversationId, MessageId } from '@domain/value-objects';
 import { MessageMapper } from '@application/mappers';
 import {
   IConversationRepository as ConversationRepositoryToken,
@@ -20,7 +20,8 @@ export class MessageController {
     @inject(ConversationRepositoryToken)
     private readonly conversationRepository: IConversationRepository,
     @inject(MessageRepositoryToken)
-    private readonly messageRepository: IMessageRepository
+    private readonly messageRepository: IMessageRepository,
+    @inject(SendMessageUseCase) private readonly sendMessageUseCase: SendMessageUseCase
   ) {}
 
   async getMessages(
@@ -69,23 +70,14 @@ export class MessageController {
     const { conversationId } = request.params;
     const { content, type = 'TEXT', replyToId, mediaUrl } = request.body;
 
-    const convId = ConversationId.restore(conversationId);
-
-    const conversation = await this.conversationRepository.findById(convId);
-    if (!conversation || !conversation.hasParticipant(userId)) {
-      reply.status(404).send({ error: 'Conversation not found' });
-      return;
-    }
-
-    const messageType = MessageType.fromString(type);
-    const message = Message.create(convId, userId, content, messageType);
-
-    if (replyToId) message.setReplyTo(MessageId.restore(replyToId));
-    if (mediaUrl && messageType.isMedia) message.setMediaUrl(mediaUrl);
-
-    await this.messageRepository.save(message);
-    conversation.addMessage(message);
-    await this.conversationRepository.save(conversation);
+    const { message } = await this.sendMessageUseCase.execute({
+      conversationId,
+      senderId: userId,
+      content,
+      type,
+      ...(replyToId ? { replyToId } : {}),
+      ...(mediaUrl ? { mediaUrl } : {}),
+    });
 
     reply.status(201).send(MessageMapper.toResponseDTO(message));
   }

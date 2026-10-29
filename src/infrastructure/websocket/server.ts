@@ -1,3 +1,4 @@
+import { assertAccountActive } from '../privacy/AccountAccess';
 import { Server, Socket } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import type { FastifyInstance } from 'fastify';
@@ -64,6 +65,7 @@ export async function createSocketServer(fastify: FastifyInstance): Promise<Serv
         return next(new Error('Invalid token'));
       }
 
+      await assertAccountActive(decoded.userId);
       (socket as any).userId = decoded.userId;
       (socket as any).conversationRooms = new Set<string>();
 
@@ -77,6 +79,15 @@ export async function createSocketServer(fastify: FastifyInstance): Promise<Serv
   // Connection handler
   io.on('connection', async (socket: Socket) => {
     const userId = (socket as any).userId as string;
+    socket.use(async (_packet, next) => {
+      try {
+        await assertAccountActive(userId);
+        next();
+      } catch {
+        next(new Error('User account is inactive'));
+        socket.disconnect(true);
+      }
+    });
     logger.info({ socketId: socket.id, userId }, 'Client connected');
 
     try {

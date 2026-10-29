@@ -59,7 +59,15 @@ model Match {
 }
 
 /// User table - READ ONLY (managed by CORE service)
+enum UserStatus {
+  PENDING
+  ACTIVE
+  DISABLED
+  DELETED
+}
+
 model User {
+  status UserStatus
   id        String   @id
   email     String   @unique
   name      String

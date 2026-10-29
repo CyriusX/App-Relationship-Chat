@@ -1,3 +1,4 @@
+import { SendMessageUseCase } from '@application/use-cases/message/SendMessageUseCase';
 import type { FastifyInstance } from 'fastify';
 import { MessageController } from '../controllers/MessageController';
 import { authMiddleware } from '../middlewares/auth.middleware';
@@ -9,9 +10,15 @@ import {
 import type { IConversationRepository, IMessageRepository } from '@domain/repositories';
 
 export async function messageRoutes(fastify: FastifyInstance): Promise<void> {
-  const conversationRepository = container.resolve<IConversationRepository>(ConversationRepositoryToken);
+  const conversationRepository = container.resolve<IConversationRepository>(
+    ConversationRepositoryToken
+  );
   const messageRepository = container.resolve<IMessageRepository>(MessageRepositoryToken);
-  const controller = new MessageController(conversationRepository, messageRepository);
+  const controller = new MessageController(
+    conversationRepository,
+    messageRepository,
+    container.resolve(SendMessageUseCase)
+  );
 
   // Get messages for a conversation
   fastify.get(

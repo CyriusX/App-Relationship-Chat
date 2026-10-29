@@ -1,10 +1,6 @@
 import { injectable, inject } from 'tsyringe';
 import { Conversation } from '@domain/entities';
-import {
-  IConversationRepository,
-  IMatchRepository,
-  IBlockRepository,
-} from '@domain/repositories';
+import { IConversationRepository, IMatchRepository, IBlockRepository } from '@domain/repositories';
 import { ConversationResponseDTO } from '@application/dto';
 import { ConversationMapper } from '@application/mappers/ConversationMapper';
 import {
@@ -53,16 +49,16 @@ export class CreateConversationUseCase {
   async execute(input: CreateConversationInput): Promise<ConversationResponseDTO> {
     const { userAId, userBId, matchId } = input;
 
-    // Check if conversation already exists
-    const existing = await this.conversationRepository.findByParticipants(userAId, userBId);
-    if (existing) {
-      return ConversationMapper.toResponseDTOAsync(existing, userAId);
-    }
-
     // Validate: Check if users are blocked
     const isBlocked = await this.blockRepository.existsBetween(userAId, userBId);
     if (isBlocked) {
       throw new UsersBlockedError();
+    }
+
+    // Check if conversation already exists
+    const existing = await this.conversationRepository.findByParticipants(userAId, userBId);
+    if (existing) {
+      return ConversationMapper.toResponseDTOAsync(existing, userAId);
     }
 
     // Validate: Check if users have a match

@@ -1,3 +1,4 @@
+import { AuthorizeConversationUseCase } from '@application/use-cases/conversation/AuthorizeConversationUseCase';
 import type { Socket, Server } from 'socket.io';
 import { injectable, inject } from 'tsyringe';
 import type {
@@ -23,15 +24,38 @@ export class ChatSocketHandlers {
     @inject(MessageRepositoryToken)
     private readonly messageRepository: IMessageRepository,
     @inject(PresenceRepositoryToken)
-    private readonly presenceRepository: IPresenceRepository
+    private readonly presenceRepository: IPresenceRepository,
+    @inject(AuthorizeConversationUseCase) private readonly authorize: AuthorizeConversationUseCase
   ) {}
 
   register(socket: Socket, io: Server): void {
     const userId = (socket as any).userId as string;
 
+    socket.use(async (packet, next) => {
+      const payload: unknown = packet[1];
+      try {
+        if (
+          packet[0] !== 'conversation:leave' &&
+          typeof payload === 'object' &&
+          payload !== null &&
+          'conversationId' in payload &&
+          typeof payload.conversationId === 'string'
+        ) {
+          await this.authorize.execute(userId, payload.conversationId);
+        }
+        next();
+      } catch {
+        socket.emit('error', { message: 'Conversation unavailable', code: 'FORBIDDEN' });
+        next(new Error('Conversation unavailable'));
+      }
+    });
     // Conversation room handlers
-    socket.on('conversation:join', (data: any) => this.handleJoinConversation(socket, userId, data));
-    socket.on('conversation:leave', (data: any) => this.handleLeaveConversation(socket, userId, data));
+    socket.on('conversation:join', (data: any) =>
+      this.handleJoinConversation(socket, userId, data)
+    );
+    socket.on('conversation:leave', (data: any) =>
+      this.handleLeaveConversation(socket, userId, data)
+    );
 
     // Message handlers
     socket.on('message:send', (data: any) => this.handleSendMessage(socket, io, userId, data));
@@ -125,6 +149,7 @@ export class ChatSocketHandlers {
         return;
       }
 
+      await this.authorize.execute(userId, message.conversationId.value);
       message.edit(data.content);
       await this.messageRepository.save(message);
 

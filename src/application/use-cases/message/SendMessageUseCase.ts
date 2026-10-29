@@ -22,6 +22,7 @@ export interface SendMessageInput {
   content: string;
   type?: string;
   replyToId?: string;
+  mediaUrl?: string;
 }
 
 export interface SendMessageOutput {
@@ -33,6 +34,7 @@ export interface SendMessageOutput {
  * Error thrown when users are blocked
  */
 export class UsersBlockedError extends Error {
+  readonly statusCode = 403;
   constructor() {
     super('Cannot send message: users are blocked');
     this.name = 'UsersBlockedError';
@@ -81,6 +83,8 @@ export class SendMessageUseCase {
     const messageType = input.type ? MessageType.fromString(input.type) : MessageType.text();
     const message = Message.create(conversationId, senderId, input.content, messageType);
 
+    if (input.mediaUrl && messageType.isMedia) message.setMediaUrl(input.mediaUrl);
+
     // Set reply if provided
     if (input.replyToId) {
       message.setReplyTo(MessageId.create(input.replyToId));
@@ -91,6 +95,7 @@ export class SendMessageUseCase {
 
     // Save to repository
     await this.messageRepository.save(message);
+    await this.conversationRepository.save(conversation);
 
     // Create domain event
     const event = new MessageSent(message);

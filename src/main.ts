@@ -1,3 +1,6 @@
+import { purgeAccount } from '@infrastructure/privacy/purgeAccount';
+import { internalPrivacyAuth } from '@infrastructure/privacy/internalAuth';
+import { z } from 'zod';
 import 'reflect-metadata';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
@@ -91,6 +94,16 @@ async function bootstrap() {
 
     // Register error handler
     fastify.setErrorHandler(errorHandler);
+
+    fastify.delete(
+      '/internal/users/:userId/data',
+      { preHandler: internalPrivacyAuth },
+      async (request, reply) => {
+        const { userId } = z.object({ userId: z.string().uuid() }).parse(request.params);
+        await purgeAccount(userId);
+        return reply.code(204).send();
+      }
+    );
 
     // Register routes
     await fastify.register(registerRoutes);

@@ -1,3 +1,4 @@
+import { assertAccountActive } from '../../privacy/AccountAccess';
 import { injectable } from 'tsyringe';
 import { logger } from '@shared/logger';
 
@@ -11,6 +12,7 @@ export class BlockRepository implements IBlockRepository {
    */
   async existsBetween(userId1: string, userId2: string): Promise<boolean> {
     try {
+      await Promise.all([assertAccountActive(userId1), assertAccountActive(userId2)]);
       // Check both directions (userA blocked userB or userB blocked userA)
       const count = await prisma.block.count({
         where: {

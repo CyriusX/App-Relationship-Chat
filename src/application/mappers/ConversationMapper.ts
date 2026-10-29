@@ -1,5 +1,9 @@
 import { Conversation } from '@domain/entities';
-import { ConversationResponseDTO, ConversationListResponseDTO, ConversationOtherUserDTO } from '@application/dto';
+import {
+  ConversationResponseDTO,
+  ConversationListResponseDTO,
+  ConversationOtherUserDTO,
+} from '@application/dto';
 import { prismaClient } from '@infrastructure/database/client';
 
 export class ConversationMapper {
@@ -11,10 +15,14 @@ export class ConversationMapper {
     conversation: Conversation,
     userId: string
   ): Promise<ConversationResponseDTO> {
-    const otherUserId = conversation.userAId === userId
-      ? conversation.userBId
-      : conversation.userAId;
+    const otherUserId =
+      conversation.userAId === userId ? conversation.userBId : conversation.userAId;
 
+    const account = await prismaClient.user.findUnique({
+      where: { id: otherUserId },
+      select: { status: true },
+    });
+    const available = account?.status === 'ACTIVE';
     // Fetch other user data from database
     const otherUserProfile = await prismaClient.profile.findUnique({
       where: { userId: otherUserId },
@@ -44,16 +52,19 @@ export class ConversationMapper {
       const today = new Date();
       age = today.getFullYear() - otherUserProfile.birthDate.getFullYear();
       const monthDiff = today.getMonth() - otherUserProfile.birthDate.getMonth();
-      if (monthDiff < 0 || (monthDiff === 1 && today.getDate() < otherUserProfile.birthDate.getDate())) {
+      if (
+        monthDiff < 0 ||
+        (monthDiff === 1 && today.getDate() < otherUserProfile.birthDate.getDate())
+      ) {
         age--;
       }
     }
 
     const otherUser: ConversationOtherUserDTO = {
       id: otherUserId,
-      displayName: otherUserProfile?.displayName ?? 'Usuario',
-      age,
-      photoUrl: otherUserPhoto?.url ?? null,
+      displayName: available ? (otherUserProfile?.displayName ?? 'Usuário') : 'Usuário excluído',
+      age: available ? age : 0,
+      photoUrl: available ? (otherUserPhoto?.url ?? null) : null,
     };
 
     return {
@@ -64,12 +75,12 @@ export class ConversationMapper {
       otherUser,
       lastMessage: conversation.lastMessage
         ? {
-          id: conversation.lastMessage.id.value,
-          senderId: conversation.lastMessage.senderId,
-          preview: conversation.lastMessage.content.preview,
-          createdAt: conversation.lastMessage.createdAt,
-        }
-      : null,
+            id: conversation.lastMessage.id.value,
+            senderId: conversation.lastMessage.senderId,
+            preview: conversation.lastMessage.content.preview,
+            createdAt: conversation.lastMessage.createdAt,
+          }
+        : null,
       unreadCount: conversation.getUnreadCount(userId),
       createdAt: conversation.createdAt,
       updatedAt: conversation.updatedAt,
@@ -89,9 +100,9 @@ export class ConversationMapper {
     nextCursor: string | null
   ): Promise<ConversationListResponseDTO> {
     // Get all unique other user IDs
-    const otherUserIds = [...new Set(
-      conversations.map(c => c.userAId === userId ? c.userBId : c.userAId)
-    )];
+    const otherUserIds = [
+      ...new Set(conversations.map((c) => (c.userAId === userId ? c.userBId : c.userAId))),
+    ];
 
     // Batch fetch all profiles
     const profiles = await prismaClient.profile.findMany({
@@ -103,7 +114,9 @@ export class ConversationMapper {
       },
     });
 
-    const profileMap = new Map(profiles.map((p: { userId: string; displayName: string; birthDate: Date }) => [p.userId, p]));
+    const profileMap = new Map(
+      profiles.map((p: { userId: string; displayName: string; birthDate: Date }) => [p.userId, p])
+    );
 
     // Batch fetch all photos
     const photos = await prismaClient.media.findMany({
@@ -142,9 +155,8 @@ export class ConversationMapper {
     // Build response with enriched data
     const enrichedConversations = await Promise.all(
       conversations.map(async (conversation) => {
-        const otherUserId = conversation.userAId === userId
-          ? conversation.userBId
-          : conversation.userAId;
+        const otherUserId =
+          conversation.userAId === userId ? conversation.userBId : conversation.userAId;
 
         const profile = profileMap.get(otherUserId);
         const photoUrl = photoMap.get(otherUserId) ?? null;
@@ -164,12 +176,12 @@ export class ConversationMapper {
           otherUser,
           lastMessage: conversation.lastMessage
             ? {
-              id: conversation.lastMessage.id.value,
-              senderId: conversation.lastMessage.senderId,
-              preview: conversation.lastMessage.content.preview,
-              createdAt: conversation.lastMessage.createdAt,
-            }
-          : null,
+                id: conversation.lastMessage.id.value,
+                senderId: conversation.lastMessage.senderId,
+                preview: conversation.lastMessage.content.preview,
+                createdAt: conversation.lastMessage.createdAt,
+              }
+            : null,
           unreadCount: conversation.getUnreadCount(userId),
           createdAt: conversation.createdAt,
           updatedAt: conversation.updatedAt,
