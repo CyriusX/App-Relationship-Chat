@@ -5,6 +5,10 @@ import { chatInbox } from '@infrastructure/chat/inbox';
 const actor = (r: FastifyRequest) =>
   (r as FastifyRequest & { userPayload: JwtPayload }).userPayload.userId;
 export async function messageRoutes(app: FastifyInstance): Promise<void> {
+  app.addHook('onSend', async (_request, reply, payload) => {
+    reply.header('X-Server-Time', new Date().toISOString());
+    return payload;
+  });
   app.get<{ Params: { conversationId: string } }>(
     '/conversations/:conversationId/messages',
     { preHandler: authMiddleware },

@@ -71,5 +71,10 @@ export interface IChatInboxRepository {
     conversationId: string,
     lastReadMessageId?: string
   ): Promise<{ count: number }>;
-  change(userId: string, messageId: string, content: string | null): Promise<InboxMessage>;
+  change(
+    userId: string,
+    messageId: string,
+    content: string | null,
+    expectedEditedAt?: string | null
+  ): Promise<InboxMessage>;
 }

@@ -1,3 +1,4 @@
+import { messageEditDecision, MessageActionError } from '@domain/chat/MessageActions';
 import { lockParticipants } from './participant-lock';
 import { commandIdentity, canParticipate, publicAge } from '@domain/chat/ChatPolicy';
 import { randomUUID, createHash } from 'node:crypto';
@@ -66,12 +67,21 @@ async function excluded(tx: Client, userId: string) {
   });
   return rows.map((r) => (r.blockerId === userId ? r.blockedId : r.blockerId));
 }
-async function access(tx: Client, userId: string, id: string, writing = false): Promise<Conv> {
+async function access(
+  tx: Client,
+  userId: string,
+  id: string,
+  writing = false,
+  deletingOwn = false
+): Promise<Conv> {
   const c = await tx.conversation.findUnique({ where: { id } });
   if (!c || !canParticipate(userId, c)) throw fail('Conversa indisponível.', 404);
   const other = c.userAId === userId ? c.userBId : c.userAId;
-  if (writing) await lockParticipants(tx, [userId, other]);
-  if ((await excluded(tx, userId)).includes(other)) throw fail('Conversa indisponível.');
+  if (writing || deletingOwn) await lockParticipants(tx, [userId, other]);
+  if (!deletingOwn && (await excluded(tx, userId)).includes(other))
+    throw fail('Conversa indisponível.');
+  if (deletingOwn && (await tx.user.count({ where: { id: userId, status: 'ACTIVE' } })) !== 1)
+    throw fail('Sessão indisponível.', 403);
   if (writing) {
     const active = await tx.user.count({
       where: { id: { in: [userId, other] }, status: 'ACTIVE' },
@@ -408,24 +418,59 @@ export class PrismaChatInboxRepository implements IChatInboxRepository {
       { timeout: 20000, maxWait: 15000 }
     );
   }
-  async change(userId: string, messageId: string, content: string | null) {
-    return db.$transaction(async (tx) => {
-      const old = await tx.message.findUnique({ where: { id: messageId } });
-      if (!old || old.senderId !== userId || old.deletedAt)
-        throw fail('Mensagem indisponível.', 404);
-      const c = await access(tx, userId, old.conversationId, true);
-      if (!(await tx.message.findFirst({ where: { id: messageId, deletedAt: null } })))
-        throw fail('Mensagem indisponível.', 404);
-      const m = await tx.message.update({
-        where: { id: messageId },
-        data: content === null ? { deletedAt: new Date() } : { content, editedAt: new Date() },
-      });
-      await outbox(tx, content === null ? 'message:deleted' : 'message:edited', {
-        message: safeMessage(m),
-        userAId: c.userAId,
-        userBId: c.userBId,
-      });
-      return safeMessage(m);
-    });
+  async change(
+    userId: string,
+    messageId: string,
+    content: string | null,
+    expectedEditedAt?: string | null
+  ) {
+    return db.$transaction(
+      async (tx) => {
+        const initial = await tx.message.findUnique({ where: { id: messageId } });
+        if (!initial || initial.senderId !== userId) throw fail('Mensagem indisponível.', 404);
+        const c = await access(
+          tx,
+          userId,
+          initial.conversationId,
+          content !== null,
+          content === null
+        );
+        // Re-read after the participant lock; edits/deletion cannot act on a stale row.
+        const old = await tx.message.findUnique({ where: { id: messageId } });
+        if (!old || old.senderId !== userId) throw fail('Mensagem indisponível.', 404);
+        if (content === null && old.deletedAt) return safeMessage(old);
+        const now = new Date();
+        if (content !== null) {
+          try {
+            if (messageEditDecision(old, userId, content, expectedEditedAt, now) === 'unchanged')
+              return safeMessage(old);
+          } catch (error) {
+            if (error instanceof MessageActionError)
+              throw Object.assign(error, {
+                statusCode:
+                  error.reason === 'UNAVAILABLE' ? 404 : error.reason === 'TYPE' ? 400 : 409,
+              });
+            throw error;
+          }
+        }
+        const m = await tx.message.update({
+          where: { id: messageId },
+          data:
+            content === null
+              ? { deletedAt: now }
+              : {
+                  content,
+                  editedAt: new Date(Math.max(now.getTime(), (old.editedAt?.getTime() ?? -1) + 1)),
+                },
+        });
+        await outbox(tx, content === null ? 'message:deleted' : 'message:edited', {
+          message: safeMessage(m),
+          userAId: c.userAId,
+          userBId: c.userBId,
+        });
+        return safeMessage(m);
+      },
+      { timeout: 20000, maxWait: 15000 }
+    );
   }
 }

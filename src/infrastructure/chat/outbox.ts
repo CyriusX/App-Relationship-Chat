@@ -64,7 +64,7 @@ export function startInboxOutbox(io: Server): () => void {
                           messageId: m.id,
                           senderId: m.senderId,
                           receiverId: recipient,
-                          preview: (p.message.content ?? '').slice(0, 200),
+                          preview: (m.content ?? '').slice(0, 200),
                           occurredAt: new Date(String(p.message.createdAt)).toISOString(),
                         });
                     } else if (e.event_type === 'message:new') {

@@ -68,7 +68,17 @@ export class ChatInboxUseCases {
     return this.repository.read(uuid.parse(userId), uuid.parse(id), input.lastReadMessageId);
   }
   change(userId: string, id: string, body: unknown | null) {
-    const input = body === null ? null : z.object({ content }).parse(body).content;
-    return this.repository.change(uuid.parse(userId), uuid.parse(id), input);
+    const input =
+      body === null
+        ? null
+        : z
+            .object({ content, expectedEditedAt: z.string().datetime().nullable().optional() })
+            .parse(body);
+    return this.repository.change(
+      uuid.parse(userId),
+      uuid.parse(id),
+      input?.content ?? null,
+      input?.expectedEditedAt
+    );
   }
 }

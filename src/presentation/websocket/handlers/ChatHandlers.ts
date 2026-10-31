@@ -99,10 +99,13 @@ export class ChatSocketHandlers {
     socket: Socket,
     _io: Server,
     userId: string,
-    data: { messageId: string; content: string }
+    data: { messageId: string; content: string; expectedEditedAt?: string | null }
   ): Promise<void> {
     try {
-      await chatInbox.change(userId, data.messageId, { content: data.content });
+      await chatInbox.change(userId, data.messageId, {
+        content: data.content,
+        expectedEditedAt: data.expectedEditedAt,
+      });
     } catch {
       socket.emit('error', { code: 'EDIT_ERROR', message: 'Mensagem indisponível.' });
     }
