@@ -83,9 +83,18 @@ export async function createSocketServer(fastify: FastifyInstance): Promise<Serv
       try {
         await assertAccountActive(userId);
         next();
-      } catch {
-        next(new Error('User account is inactive'));
-        socket.disconnect(true);
+      } catch (error) {
+        const inactive =
+          typeof error === 'object' &&
+          error !== null &&
+          'statusCode' in error &&
+          error.statusCode === 403;
+        next(
+          new Error(
+            inactive ? 'User account is inactive' : 'Account validation temporarily unavailable'
+          )
+        );
+        if (inactive) socket.disconnect(true);
       }
     });
     logger.info({ socketId: socket.id, userId }, 'Client connected');

@@ -1,7 +1,8 @@
+import 'reflect-metadata';
+import { startInboxOutbox } from '@infrastructure/chat/outbox';
 import { purgeAccount } from '@infrastructure/privacy/purgeAccount';
 import { internalPrivacyAuth } from '@infrastructure/privacy/internalAuth';
 import { z } from 'zod';
-import 'reflect-metadata';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
@@ -113,7 +114,11 @@ async function bootstrap() {
     await connectRedis();
 
     // Initialize Socket.io
-    await createSocketServer(fastify);
+    const inboxSocket = await createSocketServer(fastify);
+    const stopInbox = startInboxOutbox(inboxSocket);
+    fastify.addHook('onClose', async () => {
+      stopInbox();
+    });
 
     // Start server
     const address = await fastify.listen({

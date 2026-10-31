@@ -2,7 +2,6 @@ import axios, { type AxiosInstance } from 'axios';
 import { injectable } from 'tsyringe';
 import { servicesConfig } from '@shared/config';
 import { logger } from '@shared/logger';
-import { generateId } from '@shared/utils';
 
 export interface MessageSentPayload {
   conversationId: string;
@@ -10,6 +9,7 @@ export interface MessageSentPayload {
   senderId: string;
   receiverId: string;
   preview: string; // Max 200 chars
+  occurredAt?: string;
 }
 
 export interface INotificationClient {
@@ -34,17 +34,25 @@ export class NotificationHttpClient implements INotificationClient {
   async sendMessageSentEvent(payload: MessageSentPayload): Promise<void> {
     try {
       const eventPayload = {
-        eventId: generateId(),
+        eventId: payload.messageId,
         eventType: 'chat.message.sent',
-        occurredAt: new Date().toISOString(),
+        occurredAt: payload.occurredAt ?? new Date().toISOString(),
         producer: 'chat-service',
         payload: {
-          ...payload,
+          conversationId: payload.conversationId,
+          messageId: payload.messageId,
+          senderId: payload.senderId,
+          receiverId: payload.receiverId,
           preview: payload.preview.slice(0, 200),
         },
       };
 
-      await this.client.post('/internal/events', eventPayload);
+      const response = await this.client.post<{ data?: { processed?: boolean } }>(
+        '/internal/events',
+        eventPayload
+      );
+      if (response.data.data?.processed !== true)
+        throw new Error('Notification processing not confirmed');
 
       logger.debug(
         {
@@ -54,14 +62,14 @@ export class NotificationHttpClient implements INotificationClient {
         'Notification event sent'
       );
     } catch (error) {
-      // Log but don't throw - notification is non-critical
-      logger.error(
+      logger.warn(
         {
-          error: axios.isAxiosError(error) ? error.message : error,
-          payload,
+          messageId: payload.messageId,
+          code: axios.isAxiosError(error) ? error.code : 'DELIVERY_FAILED',
         },
-        'Failed to send notification event'
+        'Notification delivery will be retried'
       );
+      throw new Error('Notification delivery failed');
     }
   }
 }

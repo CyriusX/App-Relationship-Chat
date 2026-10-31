@@ -146,6 +146,8 @@ model Conversation {
 }
 
 model Message {
+  clientCommandHash String? @map("client_command_hash")
+  clientMessageId String? @map("client_message_id")
   id             String        @id @default(uuid())
   conversationId String        @map("conversation_id")
   senderId       String        @map("sender_id")
@@ -165,6 +167,7 @@ model Message {
   readReceipts MessageReadReceipt[]
   reactions    MessageReaction[]
 
+  @@unique([senderId, conversationId, clientMessageId], map: "chat_message_client_identity")
   @@index([conversationId, createdAt])
   @@index([senderId])
   @@index([conversationId, status])
@@ -208,4 +211,15 @@ model MessageReaction {
 
   @@unique([messageId, userId, emoji])
   @@map("chat_message_reactions")
+}
+
+model ChatInboxOutbox {
+ id String @id
+ eventType String @map("event_type")
+ payload Json
+ attempts Int @default(0)
+ createdAt DateTime @default(now()) @map("created_at")
+ processedAt DateTime? @map("processed_at")
+ nextAttemptAt DateTime @default(now()) @map("next_attempt_at")
+ @@map("chat_inbox_outbox")
 }
