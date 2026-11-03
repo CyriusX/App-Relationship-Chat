@@ -128,7 +128,7 @@ export class PrismaChatInboxRepository implements IChatInboxRepository {
       }),
       db.media.findMany({
         where: { userId: { in: others }, type: 'PHOTO', status: 'READY', deletedAt: null },
-        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        orderBy: [{position:'asc'},{createdAt:'asc'},{id:'asc'}],
         select: { userId: true, url: true },
       }),
       db.$queryRaw<

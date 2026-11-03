@@ -40,7 +40,7 @@ export class ConversationMapper {
         status: 'READY',
         deletedAt: null,
       },
-      orderBy: { createdAt: 'asc' },
+      orderBy: [{position:'asc'},{createdAt:'asc'},{id:'asc'}],
       select: {
         url: true,
       },
@@ -126,7 +126,7 @@ export class ConversationMapper {
         status: 'READY',
         deletedAt: null,
       },
-      orderBy: { createdAt: 'asc' },
+      orderBy: [{position:'asc'},{createdAt:'asc'},{id:'asc'}],
       select: {
         userId: true,
         url: true,

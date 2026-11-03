@@ -95,6 +95,8 @@ model Profile {
 
 /// Media table - READ ONLY (managed by Media service)
 model Media {
+  position         Int     @default(0)
+  replacementForId String? @unique(map: "ms_media_replacement_for_id_key") @map("replacement_for_id")
   id           String  @id
   userId       String @map("user_id")
   url          String?
