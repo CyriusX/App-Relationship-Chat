@@ -19,6 +19,7 @@ interface JwtPayload {
 }
 
 let io: Server | null = null;
+let matchSubscriber: ReturnType<typeof redisClient.duplicate> | null = null;
 
 export function getIO(): Server {
   if (!io) {
@@ -49,6 +50,21 @@ export async function createSocketServer(fastify: FastifyInstance): Promise<Serv
   }
 
   // Authentication middleware
+  matchSubscriber = redisClient.duplicate();
+  matchSubscriber.on('message', (_channel, raw) => {
+    try {
+      const data = JSON.parse(raw) as { participants?: unknown };
+      if (!Array.isArray(data.participants) || data.participants.length !== 2) return;
+      for (const id of data.participants) {
+        if (typeof id === 'string' && /^[a-f0-9-]{36}$/i.test(id))
+          io?.local.to(`user:${id}`).emit('connections:changed', {});
+      }
+    } catch {
+      /* Malformed hints never reach clients. */
+    }
+  });
+  await matchSubscriber.subscribe('astrolovers:connections:changed');
+
   io.use(async (socket: Socket, next) => {
     try {
       const token =
@@ -145,6 +161,10 @@ export async function createSocketServer(fastify: FastifyInstance): Promise<Serv
 }
 
 export async function closeSocketServer(): Promise<void> {
+  if (matchSubscriber) {
+    await matchSubscriber.quit();
+    matchSubscriber = null;
+  }
   if (io) {
     await new Promise<void>((resolve) => {
       io!.close(() => {
